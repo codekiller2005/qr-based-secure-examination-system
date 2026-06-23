@@ -1,0 +1,25 @@
+name: secure_offline_exam
+description: "A secure offline examination system client using Flutter."
+publish_to: 'none'
+version: 1.0.0+1
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  # State Management
+  provider: ^6.1.2
+  # Networking
+  dio: ^5.4.1
+  # Local Cache Storage
+  shared_preferences: ^2.2.2
+  # Icons and Styling
+  cupertino_icons: ^1.0.6
+  # Camera Scanner
+  mobile_scanner: ^7.1.1
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+flutter:
+  uses-material-design: true

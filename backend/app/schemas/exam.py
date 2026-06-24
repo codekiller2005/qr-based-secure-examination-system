@@ -12,6 +12,7 @@ class ExamCreate(BaseModel):
     start_time: datetime
     end_time: datetime
     duration_minutes: int = Field(..., gt=0, description="Exam duration in minutes")
+    pdf_path: Optional[str] = None
     encrypted_questions_b64: str = Field(..., description="Base64 encoded ciphertext of exam questions")
     passcode: str = Field(..., min_length=6, description="Cleartext passcode for invigilator unlocking")
 class ExamUpdate(BaseModel):
@@ -23,6 +24,7 @@ class ExamUpdate(BaseModel):
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
     duration_minutes: Optional[int] = Field(None, gt=0)
+    pdf_path: Optional[str] = None
     encrypted_questions_b64: Optional[str] = None
     passcode: Optional[str] = Field(None, min_length=6)
     status: Optional[str] = None # 'draft', 'scheduled', 'ongoing', 'completed'
@@ -35,6 +37,7 @@ class ExamResponse(BaseModel):
     subject_id: str
     title: str
     description: Optional[str]
+    pdf_path: Optional[str]
     start_time: datetime
     end_time: datetime
     duration_minutes: int

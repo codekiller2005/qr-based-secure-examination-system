@@ -38,6 +38,7 @@ def generate_secure_qr_token(db: Session, exam_id: str, expires_in_minutes: int)
     db.refresh(db_token)
     return db_token
 def validate_qr_token(db: Session, token_value: str) -> QRToken:
+    print("TOKEN RECEIVED =", repr(token_value))
     """
     Validates a QR token. Checks existence, status, and expiration.
     
@@ -74,7 +75,7 @@ def use_qr_token(db: Session, token_value: str) -> dict:
     Invalidates a QR token by marking it as used. Prevents double-scan cheats.
     
     Args:
-        db: Database session.
+        db: Database session.   
         token_value: Scanned UUID token to invalidate.
     Returns:
         Confirmation dictionary.

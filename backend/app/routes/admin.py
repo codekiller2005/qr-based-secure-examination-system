@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, status, Response
+from fastapi import APIRouter, Depends, status, Response,UploadFile,File
+import os
+import uuid
 from sqlalchemy.orm import Session
 from typing import List
 from app.database import get_db
@@ -99,3 +101,17 @@ def generate_exam_qr_token(exam_id: str, qr_in: QRTokenCreate, db: Session = Dep
     Generate an encrypted dynamic QR code JWT token representing verification parameters to launch an exam.
     """
     return exam_service.generate_exam_qr_token(db, exam_id, qr_in)
+@router.post("/upload-pdf")
+async def upload_pdf(file: UploadFile = File(...)):
+    upload_dir = "uploads/pdfs"
+    os.makedirs(upload_dir, exist_ok=True)
+
+    filename = f"{uuid.uuid4()}_{file.filename}"
+    file_path = os.path.join(upload_dir, filename)
+
+    with open(file_path, "wb") as buffer:
+        buffer.write(await file.read())
+
+    return {
+        "pdf_path": file_path
+    }

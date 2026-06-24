@@ -43,7 +43,7 @@ class _QRScanScreenState extends State<QRScanScreen> {
   }
   void _triggerSimulatedScan() {
     // Generate the exact mock QR JSON payload requested by the user
-    const String mockData = '{"examId": "CS101", "subject": "Artificial Intelligence", "startTime": "09:00 AM"}';
+      const String mockData = 'test_token_123';
     _navigateToValidation(mockData);
   }
   void _triggerInvalidSimulatedScan() {

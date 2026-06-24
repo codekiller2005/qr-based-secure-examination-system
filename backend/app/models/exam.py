@@ -15,6 +15,7 @@ class Exam(Base):
     start_time = Column(DateTime, nullable=False, index=True)
     end_time = Column(DateTime, nullable=False)
     duration_minutes = Column(Integer, nullable=False)
+    pdf_path = Column(String(500), nullable=True)
     encrypted_questions = Column(LargeBinary, nullable=False) # LONGBLOB containing AES-256-GCM questions payload
     passcode_hash = Column(String(255), nullable=False) # Verification hash to unlock the exam offline
     status = Column(Enum("draft", "scheduled", "ongoing", "completed", name="exam_status"), nullable=False, default="draft", index=True)

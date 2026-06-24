@@ -46,6 +46,7 @@ def create_exam(db: Session, exam_in: ExamCreate) -> Exam:
         start_time=exam_in.start_time,
         end_time=exam_in.end_time,
         duration_minutes=exam_in.duration_minutes,
+        pdf_path=exam_in.pdf_path,
         encrypted_questions=decoded_questions,
         passcode_hash=hashed_pass,
         status="scheduled"
@@ -86,6 +87,8 @@ def update_exam(db: Session, exam_id: str, exam_in: ExamUpdate) -> Exam:
         db_exam.end_time = exam_in.end_time
     if exam_in.duration_minutes is not None:
         db_exam.duration_minutes = exam_in.duration_minutes
+    if exam_in.pdf_path is not None:
+        db_exam.pdf_path = exam_in.pdf_path
     if exam_in.status is not None:
         db_exam.status = exam_in.status
     # Decode updated questions if provided

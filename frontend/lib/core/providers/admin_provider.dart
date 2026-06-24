@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../services/admin_service.dart';
+
 class MockExam {
   final String id;
   final String title;
@@ -38,6 +40,23 @@ class MockViolationLog {
   });
 }
 class AdminProvider extends ChangeNotifier {
+  final AdminService _adminService;
+
+  AdminProvider(this._adminService) {
+    testBackendConnection();
+  }
+
+  Future<void> testBackendConnection() async {
+    try {
+      final exams = await _adminService.getExams();
+
+      print("========== EXAMS FROM BACKEND ==========");
+      print(exams);
+      print("========================================");
+    } catch (e) {
+      print("ADMIN API ERROR: $e");
+    }
+  }
   final List<MockExam> _exams = [
     MockExam(
       id: 'EXAM-001',

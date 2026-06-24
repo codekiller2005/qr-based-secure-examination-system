@@ -21,35 +21,44 @@ class QRProvider extends ChangeNotifier {
   /// Validates the scanned QR payload.
   /// Pre-configured to hook into ApiService endpoints in future production drops.
   Future<bool> validateQr(String qrContent) async {
-    print("SCANNED QR = $qrContent");
-    _isValidating = true;
-    _scannedData = qrContent;
-    _validationError = null;
-    _validatedExamData = null;
-    notifyListeners();
-    // Simulate network latency / cryptographic validation overhead
-    await Future.delayed(const Duration(milliseconds: 1500));
-    try {
-      // Decode the scanned payload
-      final Map<String, dynamic> decoded = jsonDecode(qrContent);
-      // Verify that it contains our required mock structure: examId, subject, and startTime
-      if (decoded.containsKey('examId') &&
-          decoded.containsKey('subject') &&
-          decoded.containsKey('startTime')) {
-        _validatedExamData = decoded;
-        _isValidating = false;
-        notifyListeners();
-        return true;
-      } else {
-        _validationError = "Malformed payload: Missing required exam identifier keys.";
-      }
-    } catch (e) {
-      _validationError = "Failed to parse QR token: Data is not valid JSON.";
-    }
+     print("SCANNED QR = $qrContent");
+     _isValidating = true;
+     _scannedData = qrContent;
+     _validationError = null;
+     _validatedExamData = null;
+     notifyListeners();
+     try {
+      final response = await _apiService.dio.post('/qr/validate',
+      data: {
+        'token_value': qrContent,
+      },
+    );
+
+    print("QR VALIDATION RESPONSE = ${response.data}");
+
+    _validatedExamData = response.data;
+    return true;
+  } on DioException catch (e) {
+    print("QR VALIDATION ERROR = ${e.response?.data}");
+
+    _validationError =
+        e.response?.data['detail'] ?? 'QR validation failed.';
+    return false;
+  } finally {
     _isValidating = false;
     notifyListeners();
-    return false;
   }
+}
+Future<void> consumeQr(String qrContent) async {
+  await _apiService.dio.post(
+    '/qr/use',
+    data: {
+      'token_value': qrContent,
+    },
+  );
+
+  print("QR CONSUMED = $qrContent");
+}
   /// Reset the scanned state parameters.
   void resetState() {
     _isValidating = false;

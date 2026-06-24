@@ -8,6 +8,7 @@ import 'core/providers/exam_provider.dart';
 import 'core/providers/qr_provider.dart';
 import 'core/services/invigilator_service.dart';
 import 'core/providers/invigilator_provider.dart';
+import 'core/services/admin_service.dart';
 import 'core/providers/admin_provider.dart';
 import 'presentations/routes/app_routes.dart';
 void main() async {
@@ -19,6 +20,7 @@ void main() async {
   // Setup networking and inject storage dependency
   final apiService = ApiService(storageService);
   final invigilatorService = InvigilatorService(apiService);
+  final adminService = AdminService(apiService);
   runApp(
     MultiProvider(
       providers: [
@@ -26,6 +28,7 @@ void main() async {
         Provider<StorageService>.value(value: storageService),
         Provider<ApiService>.value(value: apiService),
         Provider<InvigilatorService>.value(value: invigilatorService),
+        Provider<AdminService>.value(value: adminService),
         
         // Register AuthProvider change notifier
         ChangeNotifierProvider<AuthProvider>(
@@ -45,9 +48,11 @@ void main() async {
           create: (context) => InvigilatorProvider(invigilatorService),
         ),
         // Register AdminProvider change notifier
-        ChangeNotifierProvider<AdminProvider>(
-          create: (context) => AdminProvider(),
-        ),
+       ChangeNotifierProvider<AdminProvider>(
+  create: (context) => AdminProvider(
+    context.read<AdminService>(),
+  ),
+),
       ],
       child: const MyApp(),
     ),

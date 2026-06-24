@@ -28,12 +28,17 @@ class _QRValidationScreenState extends State<QRValidationScreen> {
     
     if (!mounted) return;
     if (isValid) {
-      // Navigate to Success Screen
-      Navigator.pushReplacementNamed(context, AppRoutes.studentQrSuccess);
-    } else {
-      // Navigate to Failure Screen
-      Navigator.pushReplacementNamed(context, AppRoutes.studentQrFailure);
-    }
+      await qrProvider.consumeQr(qrData);
+
+  Navigator.pushReplacementNamed(context,
+    AppRoutes.studentQrSuccess,
+  );
+} else {
+  Navigator.pushReplacementNamed(
+    context,
+    AppRoutes.studentQrFailure,
+  );
+}
   }
   @override
   Widget build(BuildContext context) {

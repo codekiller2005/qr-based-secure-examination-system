@@ -35,6 +35,7 @@ class ExamResponse(BaseModel):
     """
     id: str
     subject_id: str
+    invigilator_id: Optional[str] = None
     title: str
     description: Optional[str]
     pdf_path: Optional[str]
@@ -87,3 +88,7 @@ class QRTokenResponse(BaseModel):
     model_config = {
         "from_attributes": True
     }
+
+class AssignInvigilatorRequest(BaseModel):
+    exam_id: str
+    invigilator_id: str

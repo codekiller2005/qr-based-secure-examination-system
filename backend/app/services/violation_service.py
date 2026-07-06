@@ -175,3 +175,35 @@ def get_exam_violation_report(db: Session, exam_id: str) -> dict:
         "violation_counts_by_type": counts_dict,
         "flagged_student_list": student_list
     }
+def get_recent_violations(db: Session, limit: int = 20):
+    """
+    Returns recent violations for the admin dashboard.
+    """
+
+    rows = (
+        db.query(
+            Violation,
+            User.username,
+            Exam.title,
+        )
+        .join(StudentExam, StudentExam.id == Violation.student_exam_id)
+        .join(User, User.id == StudentExam.student_id)
+        .join(Exam, Exam.id == StudentExam.exam_id)
+        .order_by(Violation.timestamp.desc())
+        .limit(limit)
+        .all()
+    )
+
+    result = []
+
+    for violation, username, exam_title in rows:
+        result.append({
+            "id": violation.id,
+            "student_name": username,
+            "exam_title": exam_title,
+            "violation_type": violation.violation_type,
+            "timestamp": violation.timestamp.isoformat(),
+            "details": violation.details,
+        })
+
+    return result

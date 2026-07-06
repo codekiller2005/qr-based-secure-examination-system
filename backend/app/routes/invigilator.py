@@ -64,7 +64,9 @@ def display_exam_qr_code(exam_id: str, db: Session = Depends(get_db)):
     """
     Display/retrieve the active encrypted QR start token for an exam.
     Students scan this QR to unlock their local exam offline.
+
     """
+    print("QR ROUTE HIT", exam_id)
     return invigilator_service.get_active_exam_qr_token(db, exam_id)
 @router.get("/schedule", response_model=List[ExamResponse], dependencies=[Depends(RoleChecker(["invigilator"]))])
 def get_exam_schedule(db: Session = Depends(get_db)):

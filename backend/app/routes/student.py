@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from datetime import timedelta
 from app.database import get_db
@@ -84,9 +85,55 @@ def submit_exam_responses(
     Verifies cryptographic signatures and hash chain bounds before committing.
     """
     return student_service.submit_exam_session(db, current_user.id, request)
+@router.get("/exams")
+def get_my_exams(
+    current_user: User = Depends(RoleChecker(["student"])),
+    db: Session = Depends(get_db)
+):
+    print("CURRENT STUDENT ID:", current_user.id)
+    """
+    Returns all exams assigned to the logged-in student.
+    """
+    return student_service.get_student_exams(db, current_user.id)
 @router.get("/exams/{exam_id}", response_model=ExamResponse, dependencies=[Depends(RoleChecker(["student"]))])
 def get_exam_details(exam_id: str, db: Session = Depends(get_db)):
     """
     Fetch metadata info for a specific exam by ID.
     """
     return get_exam_by_id(db, exam_id)
+
+
+    
+
+@router.get(
+    "/exams/{exam_id}/question-paper",
+    dependencies=[Depends(RoleChecker(["student"]))]
+)
+def download_question_paper(
+    exam_id: str,
+    current_user: User = Depends(RoleChecker(["student"])),
+    db: Session = Depends(get_db),
+):
+    """
+    Download the question paper PDF for an assigned exam.
+    """
+    return student_service.download_question_paper(
+        db,
+        current_user.id,
+        exam_id,
+    )
+@router.post(
+    "/exams/{exam_id}/finish",
+    dependencies=[Depends(RoleChecker(["student"]))]
+)
+def finish_exam(
+    exam_id: str,
+    current_user: User = Depends(RoleChecker(["student"])),
+    db: Session = Depends(get_db),
+):
+    return student_service.finish_exam(
+        db,
+        current_user.id,
+        exam_id,
+    )
+

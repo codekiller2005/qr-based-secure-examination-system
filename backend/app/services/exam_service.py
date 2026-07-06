@@ -3,6 +3,8 @@ import secrets
 import string
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session
+from sqlalchemy import func
 from fastapi import HTTPException, status
 from app.models.exam import Exam
 from app.models.subject import Subject
@@ -12,6 +14,8 @@ from app.models.qr_token import QRToken
 from app.schemas.exam import ExamCreate, ExamUpdate, InvigilatorCredentialCreate, QRTokenCreate
 from app.auth.security import hash_password
 from app.auth.jwt_handler import create_access_token
+
+from app.models.student_exam import StudentExam
 def generate_random_passcode(length: int = 8) -> str:
     """
     Generates a highly readable alphanumeric code (e.g. "A8X2B9W3") for invigilators.
@@ -54,6 +58,16 @@ def create_exam(db: Session, exam_in: ExamCreate) -> Exam:
     db.add(db_exam)
     db.commit()
     db.refresh(db_exam)
+    
+    students = db.query(User).filter(User.role == "student").all()
+    for student in students:
+        registration = StudentExam(
+        student_id=student.id,
+        exam_id=db_exam.id,
+        status="registered"
+    )
+        db.add(registration)
+    db.commit()
     return db_exam
 def get_exams(db: Session, skip: int = 0, limit: int = 100):
     """
@@ -179,3 +193,50 @@ def generate_exam_qr_token(db: Session, exam_id: str, qr_in: QRTokenCreate) -> Q
     db.commit()
     db.refresh(db_token)
     return db_token
+def generate_exam_passcode(db: Session, exam_id: str):
+    """
+    Generates a new passcode for an exam.
+    """
+
+    exam = get_exam_by_id(db, exam_id)
+
+    plain_passcode = generate_random_passcode(8)
+
+    exam.passcode_hash = hash_password(plain_passcode)
+
+    db.commit()
+    db.refresh(exam)
+
+    return {
+        "exam_id": exam.id,
+        "passcode": plain_passcode
+    }
+from app.models.violation import Violation
+
+def get_dashboard_stats(db: Session):
+    """
+    Returns statistics for the Admin Dashboard.
+    """
+
+    total_exams = db.query(Exam).count()
+
+    total_students = (
+        db.query(User)
+        .filter(User.role == "student")
+        .count()
+    )
+
+    active_proctors = (
+        db.query(Exam)
+        .filter(Exam.invigilator_id.isnot(None))
+        .count()
+    )
+
+    total_violations = db.query(Violation).count()
+
+    return {
+        "total_exams": total_exams,
+        "total_students": total_students,
+        "active_proctors": active_proctors,
+        "total_violations": total_violations,
+    }

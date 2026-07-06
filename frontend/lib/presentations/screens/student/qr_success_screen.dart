@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/providers/qr_provider.dart';
+import '../../../core/providers/exam_provider.dart';
 import '../../routes/app_routes.dart';
 class QRSuccessScreen extends StatelessWidget {
   const QRSuccessScreen({super.key});
@@ -8,9 +9,11 @@ class QRSuccessScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final qrProvider = Provider.of<QRProvider>(context);
     final examData = qrProvider.validatedExamData;
-    final String examId = examData?['examId'] ?? 'CS101';
-    final String subjectName = examData?['subject'] ?? 'Artificial Intelligence';
-    final String startTime = examData?['startTime'] ?? '09:00 AM';
+   final String examId = examData?['id'] ?? '';
+   final String subjectName = examData?['title'] ?? '';
+   final String startTime = examData?['start_time'] ?? '';
+   final String subjectCode = examData?['subject_code'] ?? '';
+   final int duration = examData?['duration'] ?? 0;
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       body: Center(
@@ -60,11 +63,11 @@ class QRSuccessScreen extends StatelessWidget {
                       style: TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5),
                     ),
                     const SizedBox(height: 16),
-                    _buildDetailRow(label: "Course Subject", value: subjectName),
+                    _buildDetailRow(label: "Exam", value: subjectName),
                     const Divider(color: Color(0xFF334155), height: 24),
-                    _buildDetailRow(label: "Exam Identifier", value: examId),
+                    _buildDetailRow(label: "Subject Code", value: subjectCode),
                     const Divider(color: Color(0xFF334155), height: 24),
-                    _buildDetailRow(label: "Scheduled Time", value: startTime),
+                    _buildDetailRow(label: "Duration",value: "$duration Minutes",),
                   ],
                 ),
               ),
@@ -76,22 +79,61 @@ class QRSuccessScreen extends StatelessWidget {
                   backgroundColor: const Color(0xFF6366F1),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
-                onPressed: () {
-                  // Reset scanner state to be clean for future operations
-                  qrProvider.resetState();
-                  
-                  // Route to the Exam Instructions Screen passing the parsed details
-                  Navigator.pushReplacementNamed(
-                    context,
-                    AppRoutes.studentInstructions,
-                    arguments: {
-                      'id': examId,
-                      'title': '$subjectName Midterm',
-                      'subject_code': examId,
-                      'duration': 120, // default/fallback duration
-                    },
-                  );
-                },
+                onPressed: () async {
+
+  final examProvider =
+      context.read<ExamProvider>();
+
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const Center(
+      child: CircularProgressIndicator(),
+    ),
+  );
+
+  try {
+
+    final pdfPath =
+    await examProvider.downloadQuestionPaper(examId);
+
+examProvider.cacheQuestionPaper(pdfPath);
+
+await examProvider.startExamOnServer(examId);
+
+    if (!context.mounted) return;
+
+    Navigator.pop(context);
+
+    qrProvider.resetState();
+
+    Navigator.pushReplacementNamed(
+      context,
+      AppRoutes.studentInstructions,
+      arguments: {
+        'id': examId,
+        'title': subjectName,
+        'subject_code': subjectCode,
+        'duration': duration,
+        'pdf_path': pdfPath,
+      },
+    );
+
+  } catch (e) {
+
+    if (context.mounted) {
+      Navigator.pop(context);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString()),
+        ),
+      );
+    }
+
+  }
+
+},
                 child: const Text(
                   "Proceed to Instructions",
                   style: TextStyle(

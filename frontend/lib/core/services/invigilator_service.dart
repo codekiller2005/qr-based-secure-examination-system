@@ -91,6 +91,11 @@ final List<ExamSession> _mockExams = [
  Future<String> generateExamQrContent(ExamSession exam) async {
   try {
     print("REQUESTING QR FOR EXAM = ${exam.id}");
+    await _apiService.dio.post("/qr/generate",data: {
+    "exam_id": exam.id,
+    "expires_in_minutes": 15,
+  },
+);
 
     final response =
         await _apiService.dio.get('/invigilator/exams/${exam.id}/qr-code');

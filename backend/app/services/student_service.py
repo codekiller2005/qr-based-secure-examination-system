@@ -1,4 +1,5 @@
 import base64
+import os
 import hashlib
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
@@ -13,6 +14,7 @@ from app.models.user import User
 from app.models.qr_token import QRToken
 from app.auth.jwt_handler import decode_access_token
 from app.schemas.student import ExamSubmissionRequest
+from fastapi.responses import FileResponse
 def verify_client_signature(public_key_pem: str, signature_b64: str, data: bytes) -> bool:
     """
     Verifies an RSA signature using the student's registered public key.
@@ -85,11 +87,15 @@ def start_exam_session(db: Session, student_id: str, exam_id: str) -> dict:
     """
     Initializes the exam session, updating student status to started.
     """
+    print("========== START EXAM ==========")
+    print("Student ID:", student_id)
+    print("Exam ID:", exam_id)
     # 1. Verify student registration
     registration = db.query(StudentExam).filter(
         StudentExam.student_id == student_id,
         StudentExam.exam_id == exam_id
     ).first()
+    print("Registration:", registration)
     if not registration:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -196,4 +202,107 @@ def submit_exam_session(db: Session, student_id: str, request: ExamSubmissionReq
         "status": registration.status,
         "message": "Exam responses synchronized and validated successfully.",
         "submitted_at": registration.submitted_at
+    }
+def get_student_exams(db: Session, student_id: str):
+    """
+    Returns all exams assigned to the authenticated student.
+    """
+
+    registrations = (
+        db.query(StudentExam)
+        .filter(StudentExam.student_id == student_id)
+        .all()
+    )
+
+    exams = []
+
+    for registration in registrations:
+        exam = db.query(Exam).filter(Exam.id == registration.exam_id).first()
+
+        if exam:
+           exams.append({
+               "id": exam.id,
+               "student_exam_id": registration.id,
+               "title": exam.title,
+               "subject_code": exam.subject.code,
+               "duration": exam.duration_minutes,
+               "status": registration.status,
+               "start_time": exam.start_time,
+               "end_time": exam.end_time,
+})
+
+    return exams
+def download_question_paper(
+    db: Session,
+    student_id: str,
+    exam_id: str,
+):
+    """
+    Allows a registered student to download the question paper PDF.
+    """
+
+    # 1. Verify the student is registered for this exam
+    registration = db.query(StudentExam).filter(
+        StudentExam.student_id == student_id,
+        StudentExam.exam_id == exam_id,
+    ).first()
+
+    if not registration:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not registered for this examination."
+        )
+
+    # 2. Fetch the exam
+    exam = db.query(Exam).filter(
+        Exam.id == exam_id
+    ).first()
+
+    if not exam:
+        raise HTTPException(
+            status_code=404,
+            detail="Exam not found."
+        )
+
+    # 3. Check PDF exists
+    if not exam.pdf_path:
+        raise HTTPException(
+            status_code=404,
+            detail="Question paper has not been uploaded yet."
+        )
+
+    if not os.path.exists(exam.pdf_path):
+        raise HTTPException(
+            status_code=404,
+            detail="Question paper file is missing."
+        )
+
+    # 4. Return PDF
+    return FileResponse(
+        path=exam.pdf_path,
+        media_type="application/pdf",
+        filename=os.path.basename(exam.pdf_path),
+    )
+def finish_exam(
+    db: Session,
+    student_id: str,
+    exam_id: str,
+):
+    registration = db.query(StudentExam).filter(
+        StudentExam.student_id == student_id,
+        StudentExam.exam_id == exam_id,
+    ).first()
+
+    if not registration:
+        raise HTTPException(
+            status_code=404,
+            detail="Exam registration not found."
+        )
+
+    registration.status = "submitted"
+
+    db.commit()
+
+    return {
+        "message": "Exam submitted successfully."
     }

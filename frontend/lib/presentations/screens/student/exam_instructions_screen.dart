@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/providers/exam_provider.dart';
 import '../../routes/app_routes.dart';
+import 'question_paper_viewer_screen.dart';
 class ExamInstructionsScreen extends StatelessWidget {
   const ExamInstructionsScreen({super.key});
   @override
@@ -9,9 +10,11 @@ class ExamInstructionsScreen extends StatelessWidget {
     // Read the passed route arguments (Map containing exam details)
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final String examId = args['id'] ?? '1';
+    
     final String examTitle = args['title'] ?? 'Operating Systems Midterm 2026';
     final String subjectCode = args['subject_code'] ?? 'CS-302';
     final int durationMinutes = args['duration'] ?? 120;
+ 
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
@@ -113,17 +116,41 @@ class ExamInstructionsScreen extends StatelessWidget {
             const SizedBox(height: 36),
             // Start Button
             ElevatedButton(
-              onPressed: () {
-                // Initialize the exam provider state (duration input is minutes)
-                Provider.of<ExamProvider>(context, listen: false).startExam(
-                  examId,
-                  examTitle,
-                  15, // Using 15 minutes for simulation ease
-                );
-                
-                // Navigate to the live exam room
-                Navigator.pushReplacementNamed(context, AppRoutes.studentExam);
-              },
+              onPressed: () async {
+
+  final examProvider =
+      Provider.of<ExamProvider>(context, listen: false);
+  final String? pdfPath =
+    examProvider.cachedPdfPath;
+
+    if (pdfPath == null) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text(
+        "Question paper not found. Please scan the QR again.",
+      ),
+    ),
+  );
+  return;
+}
+
+ await examProvider.startOfflineExam(
+  examId,
+  examTitle,
+  durationMinutes,
+);
+
+if (!context.mounted) return;
+
+Navigator.push(
+  context,
+  MaterialPageRoute(
+    builder: (_) => QuestionPaperViewerScreen(
+      pdfPath: pdfPath,
+    ),
+  ),
+);
+},
               child: const Text("I Understand, Start Exam"),
             ),
           ],

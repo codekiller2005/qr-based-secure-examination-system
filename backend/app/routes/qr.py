@@ -7,7 +7,7 @@ from app.services import qr_service
 router = APIRouter(prefix="/qr", tags=["QR Code Token Validation"])
 @router.post(
     "/generate", 
-    response_model=QRTokenDetailResponse, 
+    response_model=None, 
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(RoleChecker(["admin", "invigilator"]))]
 )

@@ -11,6 +11,8 @@ import 'core/providers/invigilator_provider.dart';
 import 'core/services/admin_service.dart';
 import 'core/providers/admin_provider.dart';
 import 'presentations/routes/app_routes.dart';
+import 'core/services/student_service.dart';
+import 'core/providers/student_provider.dart';
 void main() async {
   // Ensure Flutter engine binding initializes before executing async resources
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,6 +23,7 @@ void main() async {
   final apiService = ApiService(storageService);
   final invigilatorService = InvigilatorService(apiService);
   final adminService = AdminService(apiService);
+  final studentService = StudentService(apiService);
   runApp(
     MultiProvider(
       providers: [
@@ -29,6 +32,7 @@ void main() async {
         Provider<ApiService>.value(value: apiService),
         Provider<InvigilatorService>.value(value: invigilatorService),
         Provider<AdminService>.value(value: adminService),
+        Provider<StudentService>.value( value: studentService,),
         
         // Register AuthProvider change notifier
         ChangeNotifierProvider<AuthProvider>(
@@ -37,8 +41,10 @@ void main() async {
         
         // Register ExamProvider change notifier
         ChangeNotifierProvider<ExamProvider>(
-          create: (context) => ExamProvider(),
-        ),
+  create: (context) => ExamProvider(
+    context.read<StudentService>(),
+  ),
+),
         // Register QRProvider change notifier
         ChangeNotifierProvider<QRProvider>(
           create: (context) => QRProvider(apiService),
@@ -51,6 +57,11 @@ void main() async {
        ChangeNotifierProvider<AdminProvider>(
   create: (context) => AdminProvider(
     context.read<AdminService>(),
+  ),
+),
+ChangeNotifierProvider<StudentProvider>(
+  create: (context) => StudentProvider(
+    context.read<StudentService>(),
   ),
 ),
       ],

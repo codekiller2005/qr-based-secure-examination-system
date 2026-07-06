@@ -34,10 +34,11 @@ def get_active_exam_qr_token(db: Session, exam_id: str) -> QRToken:
     ).order_by(QRToken.created_at.desc()).first()
     
     if not token:
+        print("NO ACTIVE QR TOKEN FOUND FOR EXAM:", exam_id)
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No active start QR token found for this exam. Contact Admin to generate one."
-        )
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="No active start QR token found for this exam. Contact Admin to generate one."
+    )
     return token
 def validate_one_time_passcode(db: Session, invigilator_id: str, passcode: str) -> dict:
     """

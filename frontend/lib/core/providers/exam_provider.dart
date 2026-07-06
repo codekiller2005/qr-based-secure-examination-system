@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../services/student_service.dart';
 class Question {
   final int id;
   final String text;
@@ -11,7 +12,11 @@ class Question {
   });
 }
 class ExamProvider extends ChangeNotifier {
+  final StudentService _studentService;
+
+  ExamProvider(this._studentService);
   String? _activeExamId;
+  
   String? _activeExamTitle;
   bool _isExamStarted = false;
   
@@ -56,9 +61,23 @@ class ExamProvider extends ChangeNotifier {
     return "$minutes:$seconds";
   }
   /// Begins a new examination session and launches the countdown timer.
-  void startExam(String examId, String examTitle, int durationMinutes) {
-    _activeExamId = examId;
-    _activeExamTitle = examTitle;
+Future<String> startExam(
+    String examId,
+    
+    String examTitle,
+    int durationMinutes,
+) async {
+
+  await _studentService.startExamOnServer(examId);
+  final String pdfPath =
+    await _studentService.downloadQuestionPaper(examId);
+
+
+  _activeExamId = examId;
+  
+
+  _activeExamTitle = examTitle;
+   
     _isExamStarted = true;
     _currentQuestionIndex = 0;
     _markedForReview.clear();
@@ -73,11 +92,68 @@ class ExamProvider extends ChangeNotifier {
         notifyListeners();
       } else {
         _timer?.cancel();
-        submitExamAuto();
+        submitExam();
       }
     });
     notifyListeners();
+    return pdfPath;
+    
   }
+  Future<void> startOfflineExam(
+  String examId,
+  String examTitle,
+  int durationMinutes,
+) async {
+
+  
+
+  _activeExamId = examId;
+  _activeExamTitle = examTitle;
+
+  _isExamStarted = true;
+  _currentQuestionIndex = 0;
+  _markedForReview.clear();
+  _examResult = null;
+
+  _timerSecondsRemaining = durationMinutes * 60;
+
+  _timer?.cancel();
+
+  _timer = Timer.periodic(
+    const Duration(seconds: 1),
+    (timer) {
+      if (_timerSecondsRemaining > 0) {
+        _timerSecondsRemaining--;
+        notifyListeners();
+      } else {
+        _timer?.cancel();
+        submitExam();
+      }
+    },
+  );
+
+  notifyListeners();
+}
+  Future<String> downloadQuestionPaper(
+    String examId,
+) async {
+
+    return await _studentService
+        .downloadQuestionPaper(examId);
+
+}
+Future<void> startExamOnServer(String examId) async {
+  await _studentService.startExamOnServer(examId);
+}
+String? _cachedPdfPath;
+
+
+void cacheQuestionPaper(String path) {
+  _cachedPdfPath = path;
+}
+
+String? get cachedPdfPath => _cachedPdfPath;
+
   /// Navigates questions index.
   void setCurrentQuestionIndex(int index) {
     if (index >= 0 && index < _mockQuestions.length) {
@@ -99,15 +175,18 @@ class ExamProvider extends ChangeNotifier {
     return _markedForReview.contains(questionId);
   }
   /// Processes score validation calculations.
-  void submitExam() {
-    _timer?.cancel();
-    _calculateResults();
-  }
+  
+
   /// Auto-submission upon timer expiry.
-  void submitExamAuto() {
-    _timer?.cancel();
-    _calculateResults();
+  Future<void> submitExam() async {
+  _timer?.cancel();
+
+  if (_activeExamId != null) {
+    await _studentService.finishExam(_activeExamId!);
   }
+
+  _calculateResults();
+}
   void _calculateResults() {
     final now = DateTime.now().toLocal();
     final timeString = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')} - ${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}";

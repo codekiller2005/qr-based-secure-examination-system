@@ -1,7 +1,7 @@
 class ApiEndpoints {
   // Base URL pointing to the FastAPI backend server.
   // Note: Replace with 'http://10.0.2.2:8000/api/v1' when testing in Android Emulator.
-  static const String baseUrl = 'http://10.0.2.2:8000/api/v1';
+ static const String baseUrl = "http://10.53.192.196:8000/api/v1";
   // Core Authentication Endpoints
   static const String login = '/auth/login';
   static const String refreshToken = '/auth/refresh-token';

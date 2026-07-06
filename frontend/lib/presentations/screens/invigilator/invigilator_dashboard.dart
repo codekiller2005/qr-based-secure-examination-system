@@ -4,6 +4,7 @@ import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/invigilator_provider.dart';
 import '../../../core/models/exam_session.dart';
 import '../../routes/app_routes.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 class InvigilatorDashboard extends StatefulWidget {
   const InvigilatorDashboard({super.key});
   @override
@@ -606,48 +607,21 @@ class _InvigilatorDashboardState extends State<InvigilatorDashboard> {
             ),
             const SizedBox(height: 24),
             // Realistic Pixel Grid QR Generator Simulator
-            Center(
-              child: Container(
-                height: 200,
-                width: 200,
-                color: Colors.white,
-                padding: const EdgeInsets.all(12),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Dynamic grid simulating scan lines
-                    GridView.builder(
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 8,
-                        crossAxisSpacing: 6,
-                        mainAxisSpacing: 6,
-                      ),
-                      itemCount: 64,
-                      itemBuilder: (context, index) {
-                        // Generate mock QR pattern dynamically based on index and title
-                        final isSolid = (index * 13 + exam.title.length) % 3 == 0 ||
-                            index < 8 ||
-                            index > 56 ||
-                            index % 8 == 0 ||
-                            index % 8 == 7;
-                        return Container(
-                          color: isSolid ? Colors.black : Colors.white,
-                        );
-                      },
-                    ),
-                    Container(
-                      color: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      child: const Text(
-                        "SCAN QR TO START",
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 9, color: Color(0xFF10B981)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+           Center(
+  child: Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: QrImageView(
+      data: payload,
+      version: QrVersions.auto,
+      size: 200,
+      backgroundColor: Colors.white,
+    ),
+  ),
+),
             const SizedBox(height: 20),
             // Real payload details console display for developers
             Container(

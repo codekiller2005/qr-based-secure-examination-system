@@ -3,6 +3,9 @@ import 'package:provider/provider.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/admin_provider.dart';
 import '../../routes/app_routes.dart';
+import 'package:file_picker/file_picker.dart';
+import 'dart:io';
+
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
   @override
@@ -17,11 +20,13 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
   final _durationController = TextEditingController();
   final _marksController = TextEditingController();
   // Dropdown states for proctor assignments
-  String? _selectedAssignExamId;
-  String? _selectedInvigilator;
+ String? _selectedAssignExamId;
+ String? _selectedInvigilatorId;
+ String? _selectedInvigilatorName;
   // Dropdown states for PDF upload simulation
   String? _selectedUploadExamId;
   String? _uploadedPdfName;
+  File? _selectedQuestionPaper;
   // Dropdown states for passcode session generation
   String? _selectedSessionExamId;
   @override
@@ -45,14 +50,19 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
       Navigator.pushReplacementNamed(context, AppRoutes.login);
     }
   }
-  void _submitCreateExam(AdminProvider provider) {
+   
+ Future<void> _submitCreateExam(AdminProvider provider) async {
+
+     print("Before createExam: $_selectedQuestionPaper");
     if (!_formKey.currentState!.validate()) return;
-    provider.createExam(
-      title: _titleController.text.trim(),
-      subjectCode: _codeController.text.trim().toUpperCase(),
-      durationMinutes: int.parse(_durationController.text.trim()),
-      totalMarks: int.parse(_marksController.text.trim()),
-    );
+    await provider.createExam(
+  title: _titleController.text.trim(),
+  subjectCode: _codeController.text.trim().toUpperCase(),
+  durationMinutes: int.parse(_durationController.text.trim()),
+  totalMarks: int.parse(_marksController.text.trim()),
+  questionPaper: _selectedQuestionPaper,
+);
+    print("DASHBOARD STEP 2");
     // Reset Form fields
     _titleController.clear();
     _codeController.clear();
@@ -67,49 +77,84 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
     // Auto navigate to the ledger/reports tab to verify
     _tabController.animateTo(3);
   }
-  void _simulatePdfUpload(AdminProvider provider) {
-    if (_selectedUploadExamId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please select an exam target first.")),
-      );
-      return;
-    }
-    final exam = provider.exams.firstWhere((e) => e.id == _selectedUploadExamId);
-    final mockPdfName = "${exam.subjectCode.replaceAll('-', '')}_Final_Paper_FIT2026.pdf";
-    setState(() {
-      _uploadedPdfName = mockPdfName;
-    });
-    provider.uploadPdf(_selectedUploadExamId!, mockPdfName);
+  Future<void> _simulatePdfUpload(AdminProvider provider) async {
+  if (_selectedUploadExamId == null) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("Question Paper PDF '$mockPdfName' uploaded successfully!"),
-        backgroundColor: const Color(0xFF10B981),
+      const SnackBar(
+        content: Text("Please select an exam first."),
       ),
     );
+    return;
   }
-  void _assignProctor(AdminProvider provider) {
-    if (_selectedAssignExamId == null || _selectedInvigilator == null) {
+
+  FilePickerResult? result = await FilePicker.platform.pickFiles(
+    type: FileType.custom,
+    allowedExtensions: ['pdf'],
+  );
+
+  if (result == null) {
+    return;
+  }
+
+  File file = File(result.files.single.path!);
+
+  final pdfPath = await provider.uploadPdfToServer( _selectedUploadExamId!,file);
+
+  if (pdfPath == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Upload failed."),
+        backgroundColor: Colors.red,
+      ),
+    );
+    return;
+  }
+
+  setState(() {
+    _uploadedPdfName = file.path.split('/').last;
+  });
+
+  provider.uploadPdf(
+    _selectedUploadExamId!,
+    _uploadedPdfName!,
+  );
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text("Uploaded successfully!\n$pdfPath"),
+      backgroundColor: Colors.green,
+    ),
+  );
+}
+ Future<void> _assignProctor(AdminProvider provider) async {
+    if (_selectedAssignExamId == null || _selectedInvigilatorId == null)  {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please select both an Exam and an Invigilator.")),
       );
       return;
     }
-    provider.assignInvigilator(_selectedAssignExamId!, _selectedInvigilator!);
+   await provider.assignInvigilator(
+  examId: _selectedAssignExamId!,
+  invigilatorId: _selectedInvigilatorId!,
+  invigilatorName: _selectedInvigilatorName!,
+);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text("Assigned $_selectedInvigilator to selected exam session."),
+      content: Text(
+  "Assigned $_selectedInvigilatorName to selected exam session.",
+),
         backgroundColor: const Color(0xFF10B981),
       ),
     );
   }
-  void _generatePasscode(AdminProvider provider) {
+  Future<void> _generatePasscode(AdminProvider provider) async {
     if (_selectedSessionExamId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please select an exam target first.")),
       );
       return;
     }
-    provider.generateSessionPasscode(_selectedSessionExamId!);
+    await provider.generateSessionPasscode(_selectedSessionExamId!);
     final updatedExam = provider.exams.firstWhere((e) => e.id == _selectedSessionExamId);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -321,13 +366,30 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _codeController,
-                          decoration: _buildInputDecoration("Subject Code", Icons.code),
-                          validator: (val) => val == null || val.trim().isEmpty ? "Required" : null,
-                        ),
-                      ),
+                     Expanded(
+  child: DropdownButtonFormField<String>(
+    value: _codeController.text.isEmpty ? null : _codeController.text,
+    decoration: _buildInputDecoration("Subject", Icons.code),
+    dropdownColor: const Color(0xFF1E293B),
+    style: const TextStyle(color: Colors.white),
+    items: provider.subjects.map<DropdownMenuItem<String>>((subject) {
+      return DropdownMenuItem<String>(
+        value: subject["code"],
+        child: Text(
+          "${subject["code"]} - ${subject["name"]}",
+          style: const TextStyle(color: Colors.white),
+        ),
+      );
+    }).toList(),
+    onChanged: (value) {
+      setState(() {
+        _codeController.text = value!;
+      });
+    },
+    validator: (value) =>
+        value == null || value.isEmpty ? "Required" : null,
+  ),
+),
                       const SizedBox(width: 12),
                       Expanded(
                         child: TextFormField(
@@ -355,6 +417,32 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
                     },
                   ),
                   const SizedBox(height: 24),
+                  OutlinedButton.icon(
+onPressed: () async {
+  FilePickerResult? result = await FilePicker.platform.pickFiles(
+    type: FileType.custom,
+    allowedExtensions: ['pdf'],
+  );
+
+  if (result != null) {
+    setState(() {
+      _selectedQuestionPaper = File(result.files.single.path!);
+    });
+
+    print("PDF SELECTED: ${_selectedQuestionPaper!.path}");
+  } else {
+    print("NO PDF SELECTED");
+  }
+},
+  icon: const Icon(Icons.picture_as_pdf),
+  label: Text(
+    _selectedQuestionPaper == null
+        ? "Choose Question Paper PDF"
+        : _selectedQuestionPaper!.path.split('/').last,
+  ),
+),
+
+const SizedBox(height: 20),
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF6366F1),
@@ -369,78 +457,9 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
               ),
             ),
           ),
-          const SizedBox(height: 32),
+        
           // Question Paper Mock PDF Uploader
-          const Text(
-            "UPLOAD QUESTION PAPER PDF",
-            style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 0.8),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E293B),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF334155)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                DropdownButtonFormField<String>(
-                  value: _selectedUploadExamId,
-                  dropdownColor: const Color(0xFF1E293B),
-                  style: const TextStyle(color: Colors.white),
-                  decoration: _buildInputDecoration("Select Target Exam Session", Icons.library_books_outlined),
-                  items: provider.exams.map((exam) {
-                    return DropdownMenuItem(
-                      value: exam.id,
-                      child: Text("${exam.subjectCode} - ${exam.title}"),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    setState(() {
-                      _selectedUploadExamId = val;
-                      _uploadedPdfName = provider.exams.firstWhere((e) => e.id == val).questionPaperPdfName;
-                    });
-                  },
-                ),
-                const SizedBox(height: 20),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: const BorderSide(color: Color(0xFF334155)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  onPressed: () => _simulatePdfUpload(provider),
-                  icon: const Icon(Icons.upload_file_rounded, color: Color(0xFF818CF8)),
-                  label: const Text("Select & Upload PDF", style: TextStyle(color: Colors.white)),
-                ),
-                if (_uploadedPdfName != null) ...[
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFEF4444), size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _uploadedPdfName!,
-                          style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 12),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981).withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text("SEALED", style: TextStyle(color: Color(0xFF34D399), fontSize: 8, fontWeight: FontWeight.bold)),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
+          
         ],
       ),
     );
@@ -486,23 +505,22 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
                   },
                 ),
                 const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: _selectedInvigilator,
-                  dropdownColor: const Color(0xFF1E293B),
-                  style: const TextStyle(color: Colors.white),
-                  decoration: _buildInputDecoration("Select Assigned Invigilator", Icons.person_outline_rounded),
-                  items: provider.invigilators.map((name) {
-                    return DropdownMenuItem(
-                      value: name,
-                      child: Text(name),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    setState(() {
-                      _selectedInvigilator = val;
-                    });
-                  },
-                ),
+               DropdownButtonFormField<String>(value: _selectedInvigilatorId,dropdownColor: const Color(0xFF1E293B),
+               style: const TextStyle(color: Colors.white),
+               decoration: _buildInputDecoration("Select Assigned Invigilator",Icons.person_outline_rounded,),
+               items: provider.invigilators.map<DropdownMenuItem<String>>((user) {
+                return DropdownMenuItem<String>(value: user["id"] as String,child: Text(user["username"] as String),);
+                }).toList(),onChanged: (value) {
+    final selected = provider.invigilators.firstWhere(
+      (user) => user["id"] == value,
+    );
+
+    setState(() {
+      _selectedInvigilatorId = selected["id"];
+      _selectedInvigilatorName = selected["username"];
+    });
+  },
+),
                 const SizedBox(height: 24),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
@@ -558,7 +576,7 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  onPressed: () => _generatePasscode(provider),
+                  onPressed: () async {await _generatePasscode(provider);},
                   icon: const Icon(Icons.key_rounded, color: Colors.white),
                   label: const Text("Activate Session Passcode", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 ),
@@ -648,6 +666,35 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
                             _buildLedgerRow("Question Paper File", exam.questionPaperPdfName ?? "Not Uploaded (Pending)"),
                             _buildLedgerRow("Assigned Invigilator", exam.assignedInvigilator ?? "Unassigned (Pending)"),
                             _buildLedgerRow("Session Passcode", exam.sessionPasscode ?? "Inactive (Pending)"),
+                            const SizedBox(height: 16),
+
+ElevatedButton.icon(
+  onPressed: () async {
+    FilePickerResult? result =
+        await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+    );
+
+    if (result != null) {
+      await provider.uploadPdfToExistingExam(
+        exam.id,
+        File(result.files.single.path!),
+      );
+
+      if (!context.mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Question paper uploaded successfully!"),
+        ),
+      );
+      setState(() {});
+    }
+  },
+  icon: const Icon(Icons.upload_file),
+  label: const Text("Upload Question Paper"),
+),
                           ],
                         ),
                       ),

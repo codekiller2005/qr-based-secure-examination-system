@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/exam_session.dart';
 import '../services/invigilator_service.dart';
+import 'qr_provider.dart';
 class InvigilatorProvider extends ChangeNotifier {
   final InvigilatorService _service;
   List<ExamSession> _exams = [];
@@ -49,11 +50,13 @@ class InvigilatorProvider extends ChangeNotifier {
   }
   /// Generates the QR validation token for students to start.
   Future<void> generateQrCode(ExamSession exam) async {
+    print("GENERATE QR CLICKED FOR EXAM: ${exam.id}");
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
     try {
       _activeQrContent = await _service.generateExamQrContent(exam);
+      QRProvider.latestGeneratedQrToken = _activeQrContent;
       _activeQrExam = exam;
     } catch (e) {
       _errorMessage = 'Failed to generate access QR token.';

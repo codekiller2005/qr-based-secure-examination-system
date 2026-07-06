@@ -6,6 +6,7 @@ import '../services/api_service.dart';
 
 class QRProvider extends ChangeNotifier {
   final ApiService _apiService;
+  static String? latestGeneratedQrToken;
 
   QRProvider(this._apiService);
 
@@ -36,7 +37,7 @@ class QRProvider extends ChangeNotifier {
 
     print("QR VALIDATION RESPONSE = ${response.data}");
 
-    _validatedExamData = response.data;
+    _validatedExamData = response.data["exam"];
     return true;
   } on DioException catch (e) {
     print("QR VALIDATION ERROR = ${e.response?.data}");

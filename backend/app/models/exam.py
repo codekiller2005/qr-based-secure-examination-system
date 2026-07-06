@@ -10,6 +10,11 @@ class Exam(Base):
     __tablename__ = "exams"
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     subject_id = Column(String(36), ForeignKey("subjects.id", ondelete="RESTRICT", onupdate="CASCADE"), nullable=False)
+    invigilator_id = Column(
+    String(36),
+    ForeignKey("users.id", ondelete="SET NULL"),
+    nullable=True
+)
     title = Column(String(150), nullable=False)
     description = Column(Text, nullable=True)
     start_time = Column(DateTime, nullable=False, index=True)
@@ -23,7 +28,9 @@ class Exam(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     # Relationships
     subject = relationship("Subject", back_populates="exams")
+    invigilator = relationship("User")
     student_exams = relationship("StudentExam", back_populates="exam", cascade="all, delete-orphan")
     qr_tokens = relationship("QRToken", back_populates="exam", cascade="all, delete-orphan")
+   
     def __repr__(self) -> str:
         return f"<Exam title={self.title} status={self.status}>"

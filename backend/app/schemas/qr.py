@@ -12,10 +12,21 @@ class QRTokenValidateRequest(BaseModel):
     Request payload schema for validating a scanned QR token.
     """
     token_value: str = Field(..., description="The UUID token string scanned from the QR code")
+class QRExamResponse(BaseModel):
+    """
+    Exam details returned after successful QR validation.
+    """
+    id: str
+    title: str
+    subject_code: str
+    duration: int
+    start_time: datetime
+    status: str
 class QRTokenDetailResponse(BaseModel):
     """
     Response schema returning comprehensive QR token metadata details.
     """
+
     id: str
     exam_id: str
     token_type: str
@@ -23,6 +34,9 @@ class QRTokenDetailResponse(BaseModel):
     is_used: bool
     created_at: datetime
     expires_at: datetime
+
+    exam: Optional[QRExamResponse] = None
+
     model_config = {
         "from_attributes": True
     }

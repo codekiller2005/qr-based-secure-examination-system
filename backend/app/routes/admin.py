@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status, Response,UploadFile,File
+from fastapi import APIRouter, Depends, status, Response,UploadFile,File, HTTPException
 import os
 import uuid
 from sqlalchemy.orm import Session
@@ -9,9 +9,11 @@ from app.schemas.subject import SubjectCreate, SubjectUpdate, SubjectResponse
 from app.schemas.exam import (
     ExamCreate, ExamUpdate, ExamResponse,
     InvigilatorCredentialCreate, InvigilatorCredentialResponse,
-    QRTokenCreate, QRTokenResponse
+    QRTokenCreate, QRTokenResponse, AssignInvigilatorRequest
 )
-from app.services import subject_service, exam_service
+from app.services import subject_service, exam_service,violation_service
+from app.models.exam import Exam
+from app.models.user import User
 # Define Admin restricted router. All routes check for admin role.
 router = APIRouter(
     prefix="/admin",
@@ -101,8 +103,13 @@ def generate_exam_qr_token(exam_id: str, qr_in: QRTokenCreate, db: Session = Dep
     Generate an encrypted dynamic QR code JWT token representing verification parameters to launch an exam.
     """
     return exam_service.generate_exam_qr_token(db, exam_id, qr_in)
-@router.post("/upload-pdf")
-async def upload_pdf(file: UploadFile = File(...)):
+
+@router.post("/upload-pdf/{exam_id}")
+async def upload_pdf(
+    exam_id: str,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
     upload_dir = "uploads/pdfs"
     os.makedirs(upload_dir, exist_ok=True)
 
@@ -112,6 +119,98 @@ async def upload_pdf(file: UploadFile = File(...)):
     with open(file_path, "wb") as buffer:
         buffer.write(await file.read())
 
+    # Find the exam
+    exam = db.query(Exam).filter(Exam.id == exam_id).first()
+
+    if not exam:
+        raise HTTPException(
+            status_code=404,
+            detail="Exam not found"
+        )
+
+    # Save the PDF path in the database
+    exam.pdf_path = file_path
+
+    db.commit()
+    db.refresh(exam)
+
     return {
-        "pdf_path": file_path
+        "message": "PDF uploaded successfully",
+        "pdf_path": file_path,
+        "exam_id": exam.id
     }
+@router.get("/invigilators")
+def get_invigilators(db: Session = Depends(get_db)):
+    invigilators = (
+        db.query(User)
+        .filter(User.role == "invigilator")
+        .all()
+    )
+
+    return [
+        {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+        }
+        for user in invigilators
+    ]
+@router.post("/assign-invigilator")
+def assign_invigilator(
+    request: AssignInvigilatorRequest,
+    db: Session = Depends(get_db),
+):
+    exam = db.query(Exam).filter(Exam.id == request.exam_id).first()
+
+    if not exam:
+        raise HTTPException(
+            status_code=404,
+            detail="Exam not found",
+        )
+
+    invigilator = (
+        db.query(User)
+        .filter(
+            User.id == request.invigilator_id,
+            User.role == "invigilator",
+        )
+        .first()
+    )
+
+    if not invigilator:
+        raise HTTPException(
+            status_code=404,
+            detail="Invigilator not found",
+        )
+
+    exam.invigilator_id = request.invigilator_id
+
+    db.commit()
+    db.refresh(exam)
+
+    return {
+        "message": "Invigilator assigned successfully",
+        "exam_id": exam.id,
+        "invigilator_id": exam.invigilator_id,
+    }
+@router.post("/exams/{exam_id}/generate-passcode")
+def generate_exam_passcode(
+    exam_id: str,
+    db: Session = Depends(get_db),
+):
+    return exam_service.generate_exam_passcode(db, exam_id)
+@router.get("/dashboard-stats")
+def get_dashboard_stats(db: Session = Depends(get_db)):
+    """
+    Returns statistics for the Admin Dashboard.
+    """
+    return exam_service.get_dashboard_stats(db)
+@router.get("/recent-violations")
+def get_recent_violations(
+    limit: int = 20,
+    db: Session = Depends(get_db),
+):
+    return violation_service.get_recent_violations(
+        db,
+        limit,
+    )

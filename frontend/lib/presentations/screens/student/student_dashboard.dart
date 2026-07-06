@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/providers/student_provider.dart';
+import '../../../core/providers/exam_provider.dart';
+import '../student/question_paper_viewer_screen.dart';
 import '../../routes/app_routes.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 class StudentDashboard extends StatefulWidget {
   const StudentDashboard({super.key});
   @override
@@ -14,32 +18,16 @@ class _InvKey {
 }
 class _StudentDashboardState extends State<StudentDashboard> {
   // Mock Exam List
-  final List<Map<String, dynamic>> _exams = [
-    {
-      'id': _InvKey.keyOS,
-      'subject_code': 'CS-302',
-      'title': 'Operating Systems Midterm 2026',
-      'duration': 120,
-      'time': 'Ongoing (09:00 - 11:00)',
-      'status': 'Ready', // Ready to scan QR and start
-    },
-    {
-      'id': _InvKey.keyPython,
-      'subject_code': 'CS-101',
-      'title': 'Python Fundamentals Final 2026',
-      'duration': 180,
-      'time': 'Scheduled: In 2 Days',
-      'status': 'Scheduled',
-    },
-    {
-      'id': _InvKey.keyCalculus,
-      'subject_code': 'MATH-201',
-      'title': 'Calculus I Midterm',
-      'duration': 90,
-      'time': 'Completed: Yesterday',
-      'status': 'Completed',
-    },
-  ];
+  @override
+  void initState() {
+  super.initState();
+  print("STUDENT DASHBOARD OPENED");
+
+
+  Future.microtask(() {
+    context.read<StudentProvider>().loadMyExams();
+  });
+}
   Future<void> _handleLogout() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     await authProvider.logout();
@@ -49,6 +37,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
   }
   @override
   Widget build(BuildContext context) {
+    final studentProvider = Provider.of<StudentProvider>(context);
     final authProvider = Provider.of<AuthProvider>(context);
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
@@ -131,7 +120,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
             ),
             const SizedBox(height: 16),
             // Render list of mock exams or Empty State
-            _exams.isEmpty
+            studentProvider.exams.isEmpty
                 ? Container(
                     padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
                     decoration: BoxDecoration(
@@ -158,14 +147,13 @@ class _StudentDashboardState extends State<StudentDashboard> {
                     ),
                   )
                 : ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _exams.length,
-                    itemBuilder: (context, index) {
-                      final exam = _exams[index];
-                      return _buildExamCard(exam);
+                  shrinkWrap: true,physics: const NeverScrollableScrollPhysics(),
+                  itemCount: studentProvider.exams.length,
+                  itemBuilder: (context, index) {
+                    final exam = studentProvider.exams[index];
+                    return _buildExamCard(exam);
                     },
-                  ),
+),
           ],
         ),
       ),
@@ -176,53 +164,68 @@ class _StudentDashboardState extends State<StudentDashboard> {
     Color badgeColor;
     Color borderCol = const Color(0xFF334155);
     Widget actionButton;
-    if (status == 'Ready') {
-      badgeColor = const Color(0xFF10B981); // Green
-      borderCol = const Color(0xFF6366F1);
-      actionButton = ElevatedButton.icon(
-        onPressed: () => Navigator.pushNamed(context, AppRoutes.studentQrScan),
-        icon: const Icon(Icons.qr_code_scanner_rounded, size: 18, color: Colors.white),
-        label: const Text("Unlock via QR Code"),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF6366F1),
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-        ),
+    if (status == "registered") {
+  badgeColor = const Color(0xFF10B981);
+  borderCol = const Color(0xFF6366F1);
+
+  actionButton = ElevatedButton.icon(
+    onPressed: () {
+      Navigator.pushNamed(
+        context,
+        AppRoutes.studentQrScan,
       );
-    } else if (status == 'Scheduled') {
-      badgeColor = const Color(0xFFF59E0B); // Amber
-      actionButton = OutlinedButton.icon(
-        onPressed: null, // Disabled
-        icon: const Icon(Icons.lock_clock_outlined, size: 18),
-        label: const Text("Locked (Upcoming)"),
-        style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: Color(0xFF334155)),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-        ),
-      );
-    } else {
-      badgeColor = const Color(0xFF64748B); // Slate
-      actionButton = OutlinedButton.icon(
-        onPressed: null, // Disabled
-        icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
-        label: const Text("Completed & Synced"),
-        style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: Color(0xFF1E293B)),
-          backgroundColor: const Color(0xFF1E293B),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-        ),
-      );
-    }
+    },
+    icon: const Icon(
+      Icons.qr_code_scanner_rounded,
+      size: 18,
+      color: Colors.white,
+    ),
+    label: const Text("Scan QR Code"),
+    style: ElevatedButton.styleFrom(
+      backgroundColor: const Color(0xFF6366F1),
+      foregroundColor: Colors.white,
+    ),
+  );
+}
+else if (status == "started") {
+  badgeColor = Colors.orange;
+
+  actionButton = OutlinedButton.icon(
+    onPressed: null,
+    icon: const Icon(Icons.support_agent),
+    label: const Text("Contact Invigilator"),
+  );
+}
+else if (status == "submitted") {
+  badgeColor = Colors.grey;
+
+  actionButton = OutlinedButton.icon(
+    onPressed: null,
+    icon: const Icon(Icons.check_circle_outline),
+    label: const Text("Completed"),
+  );
+}
+else if (status == "flagged") {
+  badgeColor = Colors.red;
+
+  actionButton = OutlinedButton.icon(
+    onPressed: null,
+    icon: const Icon(Icons.warning),
+    label: const Text("Flagged"),
+  );
+}
+else {
+  badgeColor = Colors.grey;
+
+  actionButton = const SizedBox();
+}
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       child: Card(
         color: const Color(0xFF1E293B),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: borderCol, width: status == 'Ready' ? 1.5 : 1.0),
+         side: BorderSide(color: borderCol,width: status == "registered" ? 1.5 : 1.0,),
         ),
         child: Padding(
           padding: const EdgeInsets.all(20.0),
@@ -263,15 +266,22 @@ class _StudentDashboardState extends State<StudentDashboard> {
               ),
               const SizedBox(height: 6),
               Row(
-                children: [
-                  const Icon(Icons.calendar_today_outlined, size: 14, color: Color(0xFF94A3B8)),
-                  const SizedBox(width: 6),
-                  Text(
-                    exam['time'],
-                    style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
-                  ),
-                ],
-              ),
+  children: [
+    const Icon(
+      Icons.calendar_today_outlined,
+      size: 14,
+      color: Color(0xFF94A3B8),
+    ),
+    const SizedBox(width: 6),
+    Text(
+      exam['start_time'] ?? "Not Scheduled",
+      style: const TextStyle(
+        color: Color(0xFF94A3B8),
+        fontSize: 12,
+      ),
+    ),
+  ],
+),
               const SizedBox(height: 20),
               actionButton,
             ],

@@ -69,26 +69,53 @@ def validate_qr_token(db: Session, token_value: str) -> QRToken:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="QR token has expired. Invigilator must generate a new one."
         )
-    return token
+    exam = db.query(Exam).filter(Exam.id == token.exam_id).first()
+    return {
+    "id": token.id,
+    "exam_id": token.exam_id,
+    "token_type": token.token_type,
+    "token_value": token.token_value,
+    "is_used": token.is_used,
+    "created_at": token.created_at,
+    "expires_at": token.expires_at,
+    "exam": {
+        "id": exam.id,
+        "title": exam.title,
+        "subject_code": exam.subject.code,
+        "duration": exam.duration_minutes,
+        "start_time": exam.start_time,
+        "status": exam.status,
+    }
+}
 def use_qr_token(db: Session, token_value: str) -> dict:
     """
-    Invalidates a QR token by marking it as used. Prevents double-scan cheats.
-    
-    Args:
-        db: Database session.   
-        token_value: Scanned UUID token to invalidate.
-    Returns:
-        Confirmation dictionary.
+    Marks a QR token as used after successful validation.
     """
-    token = validate_qr_token(db, token_value)
-    
+
+    token = db.query(QRToken).filter(
+        QRToken.token_value == token_value
+    ).first()
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="QR token not found."
+        )
+
+    if token.is_used:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="QR token has already been used."
+        )
+
     token.is_used = True
+
     db.commit()
     db.refresh(token)
-    
+
     return {
         "status": "success",
         "message": "QR token successfully consumed.",
         "token_value": token.token_value,
-        "is_used": token.is_used
+        "is_used": token.is_used,
     }
